@@ -26,7 +26,9 @@ df['Image_id'] = df['Image_Label'].apply(lambda x: x.split('_')[0])
 df.dropna(axis=0, inplace=True)
 df.reset_index(inplace=True)
 df.drop(['Image_Label','index'], axis=1, inplace=True)
-print(df['labelS'].value_counts())
+df = df.loc[df['label'] != 'Sugar']
+
+
 
 def rle2mask(rle, imgshape):
     """
@@ -48,20 +50,44 @@ def rle2mask(rle, imgshape):
     for index, start in enumerate(starts):
         mask[int(start):int(start + lengths[index])] = 1
         current_position += lengths[index]
-
     return np.flipud(np.rot90(mask.reshape(height, width), k=1))
 
 
-#img = cv2.imread('./understanding_cloud_organization/train_images/'+ image)
-#gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#x = rle2mask(encoding, img.shape)
-#x = np.repeat(x[:, :, np.newaxis], 3, axis=2)
-#masked_img = x * img
-#masked_gray = cv2.cvtColor(masked_img, cv2.COLOR_BGR2GRAY)
-
 def crop(image):
-    y_nonzero, x_nonzero, _ = np.nonzero(image)
+    y_nonzero, x_nonzero = np.nonzero(image)
     return image[np.min(y_nonzero):np.max(y_nonzero), np.min(x_nonzero):np.max(x_nonzero)]
+
+datalabels = {'Fish' : 0, 'Flower':0, 'Gravel': 0}
+train_count = 0
+test_count = 0
+
+for row in df.itertuples():
+    image = row.Image_id
+    encoding = row.EncodedPixels
+    label = row.label
+    datalabels[label] += 1
+    #print(label)
+    img = cv2.imread('./understanding_cloud_organization/train_images/'+ image)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    x = rle2mask(encoding, img.shape)
+    x = np.repeat(x[:, :, np.newaxis], 3, axis=2)
+    masked_img = x * img
+    masked_gray = cv2.cvtColor(masked_img, cv2.COLOR_BGR2GRAY)
+    masked_gray = crop(masked_gray)
+    number_of_black_pix = np.sum(masked_gray == 0)
+    total_pix = np.sum(masked_gray >= -1)
+    if number_of_black_pix >total_pix//2:
+        cv2.imwrite(f'./understanding_cloud_organization/noise/{label}/{image}', masked_gray)
+    elif datalabels[label]%4 == 0:
+        test_count += 1
+        cv2.imwrite(f'./understanding_cloud_organization/test/{label}/{image}', masked_gray)
+    else:
+        train_count += 1
+        cv2.imwrite(f'./understanding_cloud_organization/train/{label}/{image}', masked_gray)
+
+print(train_count, test_count)
+exit()
+
 
 #keypoints, descriptors = sift.detectAndCompute(masked_img, None)
 #sift_image = cv2.drawKeypoints(masked_gray, keypoints, masked_img)
@@ -91,7 +117,7 @@ def generate_imgs(pattern,df):
     return descriptors
 fish_images = generate_imgs('Fish', df)
 flower_images = generate_imgs('Flower', df)
-sugar_images = generate_imgs('Sugar', df)
+sugar_images = generate_imgs('Gravel', df)
 #gravel_images = generate_imgs('Gravel', df)
 
 
@@ -163,7 +189,6 @@ example_image = np.asarray(PIL.Image.open("./understanding_cloud_organization/tr
 coords,features = slideExtract(example_image,channel="RGB")
 
 from sklearn.preprocessing import MinMaxScaler
-
 
 class Heatmap():
 

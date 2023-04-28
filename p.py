@@ -30,7 +30,7 @@ def creat(pattern,df):
 
 fish_images = creat('Fish', df)
 flower_images = creat('Flower', df)
-sugar_images = creat('Sugar', df)
+sugar_images = creat('Gravel', df)
 
 print("YOLO")
 fish_images = np.vstack(fish_images)
